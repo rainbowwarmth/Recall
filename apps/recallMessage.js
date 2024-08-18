@@ -1,7 +1,7 @@
 import plugin from '../../../lib/plugins/plugin.js'
 import fs from 'fs'
 import path from 'path'
-import { pluginData } from '#Recall'
+import { pluginData, Cfg } from '#Recall'
 import { parse } from 'yaml'
 
 export class recall extends plugin {
@@ -10,7 +10,7 @@ export class recall extends plugin {
             name: '[Recall-Plugin]消息撤回',
             dsc: 'Recall消息撤回',
             event: 'message',
-            priority: -999999999999999999999999,
+            priority: Cfg.getConfig('priority').recallMessage,
             rule: [
                 {
                     reg: ".*",
@@ -23,18 +23,18 @@ export class recall extends plugin {
     async recallMessage(e) {
         const groupId = e.group_id;
         const filePath = path.join(pluginData, `${groupId}.yaml`);
-    
+
         if (e.image || e.face) {
             logger.mark(`群 ${groupId} 的消息包含图片或表情，直接放行。`);
             return true;
         }
-
+    
         const facePattern = /\[<face,id=\d+>\]/;
         if (e.msg && facePattern.test(e.msg)) {
             logger.mark(`群 ${groupId} 的消息 "${e.msg}" 被过滤，包含特定表情格式。`);
-            return false
+            return false;
         }
-
+    
         if (fs.existsSync(filePath)) {
             let config;
             try {
@@ -46,7 +46,7 @@ export class recall extends plugin {
     
             const recallEnabled = config?.recall_enabled;
             const keywords = config?.keywords || [];
-
+    
             if (!recallEnabled || !Array.isArray(keywords)) return true;
     
             for (let keyword of keywords) {
@@ -62,6 +62,6 @@ export class recall extends plugin {
             }
         }
     
-        return false
+        return false;
     }
 }

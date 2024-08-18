@@ -2,6 +2,7 @@ import plugin from '../../../lib/plugins/plugin.js'
 import common from "../../../lib/common/common.js"
 import _ from 'lodash'
 import { exec } from 'child_process'
+import { Cfg } from '#Recall'
 
 let Restart = null
 try {
@@ -19,7 +20,7 @@ export class Update extends plugin {
         super({
             name: '[Recall-Plugin]插件更新',
             event: 'message',
-            priority: 1000,
+            priority: Cfg.getConfig('priority').update,
             rule: [
                 {
                     reg: `^#?(撤回|Recall|消息撤回|Recall-Plugin)(插件)?(强制)?更新$`,

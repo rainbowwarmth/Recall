@@ -1,7 +1,7 @@
 import plugin from '../../../lib/plugins/plugin.js'
 import fs from 'fs'
 import path from 'path'
-import { pluginData } from '#Recall'
+import { pluginData, Cfg } from '#Recall'
 import { parse, stringify } from 'yaml'
 
 export class recall extends plugin {
@@ -10,7 +10,7 @@ export class recall extends plugin {
             name: '[Recall-Plugin]违禁词',
             dsc: 'Recall违禁词管理',
             event: 'message',
-            priority: -999999999999999999999999,
+            priority: Cfg.getConfig('priority').BannedWord,
             rule: [
                 {
                     reg: "^#违禁词添加 (.+)$",
