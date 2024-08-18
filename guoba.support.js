@@ -3,9 +3,9 @@ export function supportGuoba () {
         pluginInfo: {
             name: 'Recall-Plugin',
             title: 'Recall-Plugin',
-            author: '@RainBow @xinxinxin',
-            authorLink: 'https://gitee.com/rainbowwarmth',
-            link: 'https://gitee.com/rainbowwarmth/KazuhaBot_Newmys',
+            author: '@RainBow',
+            authorLink: 'https://github.com/rainbowwarmth/',
+            link: 'https://github.com/rainbowwarmth/Recall-Plugin',
             isV3: true,
             isV2: false,
             description: '提供违规消息自动撤回功能',
