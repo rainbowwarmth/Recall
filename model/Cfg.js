@@ -1,36 +1,36 @@
-import YAML from 'yaml';
-import chokidar from 'chokidar';
-import fs from 'node:fs';
-import { _path, pluginResources, pluginRoot } from './path.js';
+import YAML from 'yaml'
+import chokidar from 'chokidar'
+import fs from 'node:fs'
+import { _path, pluginResources, pluginRoot } from './path.js'
 
 class Cfg {
   constructor () {
     /** 默认设置 */
-    this.defPath = `${_path}/plugins/Recall-plugin/defSet/`;
-    this.defSet = {};
+    this.defPath = `${_path}/plugins/Recall-plugin/defSet/`
+    this.defSet = {}
 
     /** 用户设置 */
-    this.configPath = `${_path}/plugins/Recall-plugin/config/`;
-    this.config = {};
+    this.configPath = `${_path}/plugins/Recall-plugin/config/`
+    this.config = {}
 
-    this.dataPath = `${_path}/plugins/Recall-plugin/data/`;
-    this.data = {};
+    this.dataPath = `${_path}/plugins/Recall-plugin/data/`
+    this.data = {}
 
     /** 监听文件 */
-    this.watcher = { config: {}, defSet: {} };
+    this.watcher = { config: {}, defSet: {} }
 
-    this.initCfg();
+    this.initCfg()
   }
 
   /** 初始化配置 */
   initCfg () {
-    this.ensureDirectoryExists(this.configPath);
+    this.ensureDirectoryExists(this.configPath)
 
-    const files = fs.readdirSync(this.defPath).filter(file => file.endsWith('.yaml'));
+    const files = fs.readdirSync(this.defPath).filter(file => file.endsWith('.yaml'))
     
     for (let file of files) {
-      const sourceFilePath = `${this.defPath}${file}`;
-      const destFilePath = `${this.configPath}${file}`;
+      const sourceFilePath = `${this.defPath}${file}`
+      const destFilePath = `${this.configPath}${file}`
 
       if (!fs.existsSync(sourceFilePath)) {
         continue;
@@ -38,13 +38,13 @@ class Cfg {
 
       if (!fs.existsSync(destFilePath)) {
         try {
-          fs.copyFileSync(sourceFilePath, destFilePath);
+          fs.copyFileSync(sourceFilePath, destFilePath)
         } catch (error) {
-          console.error(`无法复制文件: ${error.message}`);
+          console.error(`无法复制文件: ${error.message}`)
         }
       }
 
-      this.watch(destFilePath, file.replace('.yaml', ''), 'config');
+      this.watch(destFilePath, file.replace('.yaml', ''), 'config')
     }
   }
 
@@ -110,15 +110,15 @@ class Cfg {
       for (const key in obj2) {
         if (Array.isArray(obj2[key]) && Array.isArray(obj1[key])) {
           //合并两个对象中相同 数组属性
-          const uniqueElements = new Set([...obj1[key], ...obj2[key]]);
-          obj1[key] = [...uniqueElements];
+          const uniqueElements = new Set([...obj1[key], ...obj2[key]])
+          obj1[key] = [...uniqueElements]
         } else {
           //否则以obj2中的为准
-          obj1[key] = obj2[key];
+          obj1[key] = obj2[key]
         }
       }
-  
-      return obj1;
+
+      return obj1
     }
   
     // 设置对应模块用户配置
@@ -170,26 +170,24 @@ class Cfg {
   // 新增的目录检查方法
   ensureDirectoryExists (path) {
     if (!fs.existsSync(path)) {
-      fs.mkdirSync(path, { recursive: true });
+      fs.mkdirSync(path, { recursive: true })
     }
   }
 
   // 监听配置文件
   watch (file, app, type = 'defSet') {
-    if (this.watcher[type][app]) return;
+    if (this.watcher[type][app]) return
 
-    const watcher = chokidar.watch(file);
+    const watcher = chokidar.watch(file)
     watcher.on('change', path => {
-      delete this[type][app];
-      console.log(`[Recall插件][修改配置文件][${type}][${app}]`);
+      delete this[type][app]
+      console.log(`[Recall插件][修改配置文件][${type}][${app}]`)
       if (this[`change_${app}`]) {
-        this[`change_${app}`]();
+        this[`change_${app}`]()
       }
     });
-    this.watcher[type][app] = watcher;
+    this.watcher[type][app] = watcher
   }
-
-  // 其他方法保持不变...
 }
 
-export default new Cfg();
+export default new Cfg()

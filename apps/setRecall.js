@@ -27,46 +27,46 @@ export class recall extends plugin {
     }
 
     async enableRecall(e) {
-        const groupId = e.group_id;
-        const filePath = path.join(pluginData, `${groupId}.yaml`);
+        const groupId = e.group_id
+        const filePath = path.join(pluginData, `${groupId}.yaml`)
 
         if (!fs.existsSync(pluginData)) {
-            fs.mkdirSync(pluginData, { recursive: true });
+            fs.mkdirSync(pluginData, { recursive: true })
         }
 
         if (fs.existsSync(filePath)) {
-            let config = parse(fs.readFileSync(filePath, 'utf8'));
-            config.recall_enabled = true;
-            fs.writeFileSync(filePath, stringify(config));
-            e.reply('本群已开启自动撤回功能。');
+            let config = parse(fs.readFileSync(filePath, 'utf8'))
+            config.recall_enabled = true
+            fs.writeFileSync(filePath, stringify(config))
+            e.reply('本群已开启自动撤回功能。')
         } else {
             const defaultConfig = {
                 group_id: groupId,
                 recall_enabled: true,
                 keywords: []
-            };
-            fs.writeFileSync(filePath, stringify(defaultConfig));
-            e.reply('已为本群开启自动撤回功能。');
+            }
+            fs.writeFileSync(filePath, stringify(defaultConfig))
+            e.reply('已为本群开启自动撤回功能。')
         }
 
-        logger.mark(`群 ${groupId} 已开启自动撤回功能。`);
-        return false;
+        logger.mark(`群 ${groupId} 已开启自动撤回功能。`)
+        return false
     }
 
     async disableRecall(e) {
-        const groupId = e.group_id;
-        const filePath = path.join(pluginData, `${groupId}.yaml`);
+        const groupId = e.group_id
+        const filePath = path.join(pluginData, `${groupId}.yaml`)
 
         if (fs.existsSync(filePath)) {
-            let config = parse(fs.readFileSync(filePath, 'utf8'));
-            config.recall_enabled = false;
-            fs.writeFileSync(filePath, stringify(config));
-            e.reply('本群已关闭自动撤回功能。');
+            let config = parse(fs.readFileSync(filePath, 'utf8'))
+            config.recall_enabled = false
+            fs.writeFileSync(filePath, stringify(config))
+            e.reply('本群已关闭自动撤回功能。')
         } else {
-            e.reply('本群尚未开启自动撤回功能。');
+            e.reply('本群尚未开启自动撤回功能。')
         }
 
-        logger.mark(`群 ${groupId} 已关闭自动撤回功能。`);
-        return false;
+        logger.mark(`群 ${groupId} 已关闭自动撤回功能。`)
+        return false
     }
 }
