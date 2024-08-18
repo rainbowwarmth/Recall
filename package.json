@@ -1,0 +1,21 @@
+{
+    "name": "Recall-Plugin",
+    "version": "1.0.0",
+    "description": "测试",
+    "main": "index.js",
+    "scripts": {},
+    "type": "module",
+    "module": "index.js",
+    "dependencies": {
+    },
+    "imports": {
+        "#Recall": "./model/index.js"
+    },
+    "keywords": [
+        "Yunzai-Bot",
+        "云崽",
+        "Recall"
+    ],
+    "author": "@xinxinixin",
+    "license": "AGPL-3.0"
+}
