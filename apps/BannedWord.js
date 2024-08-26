@@ -32,8 +32,10 @@ export class recall extends plugin {
     }
 
     async addBannedWord(e) {
-        const groupId = e.group_id
-        const filePath = path.join(pluginData, `${groupId}.yaml`)
+        const botId = e.self_id
+        const groupId = e.group_id;
+        const botConfigDir = path.join(pluginData, botId.toString());
+        const filePath = path.join(botConfigDir, `${groupId}.yaml`);
 
         if (fs.existsSync(filePath)) {
             let config = parse(fs.readFileSync(filePath, 'utf8'))
@@ -63,8 +65,10 @@ export class recall extends plugin {
     }
 
     async deleteBannedWord(e) {
+        const botId = e.self_id
         const groupId = e.group_id;
-        const filePath = path.join(pluginData, `${groupId}.yaml`)
+        const botConfigDir = path.join(pluginData, botId.toString());
+        const filePath = path.join(botConfigDir, `${groupId}.yaml`);
 
         if (fs.existsSync(filePath)) {
             let config = parse(fs.readFileSync(filePath, 'utf8'))
@@ -94,8 +98,11 @@ export class recall extends plugin {
     }
 
     async viewBannedWords(e) {
+        const botId = e.self_id
         const groupId = e.group_id;
-        const filePath = path.join(pluginData, `${groupId}.yaml`)
+        const botConfigDir = path.join(pluginData, botId.toString());
+        const filePath = path.join(botConfigDir, `${groupId}.yaml`);
+
 
         if (fs.existsSync(filePath)) {
             let config = parse(fs.readFileSync(filePath, 'utf8'))

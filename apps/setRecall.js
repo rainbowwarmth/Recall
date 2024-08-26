@@ -27,11 +27,19 @@ export class recall extends plugin {
     }
 
     async enableRecall(e) {
-        const groupId = e.group_id
-        const filePath = path.join(pluginData, `${groupId}.yaml`)
+        const botId = e.self_id
+        const groupId = e.group_id;
+        const botConfigDir = path.join(pluginData, botId.toString());
+        if (!groupId) {
+            return true;
+        }
+        if (!fs.existsSync(botConfigDir)) {
+            fs.mkdirSync(botConfigDir, { recursive: true });
+        }
+        const filePath = path.join(botConfigDir, `${groupId}.yaml`);
 
         if (!fs.existsSync(pluginData)) {
-            fs.mkdirSync(pluginData, { recursive: true })
+            fs.mkdirSync(pluginData, { recursive: true });
         }
 
         if (fs.existsSync(filePath)) {
@@ -54,8 +62,10 @@ export class recall extends plugin {
     }
 
     async disableRecall(e) {
-        const groupId = e.group_id
-        const filePath = path.join(pluginData, `${groupId}.yaml`)
+        const botId = e.self_id
+        const groupId = e.group_id;
+        const botConfigDir = path.join(pluginData, botId.toString());
+        const filePath = path.join(botConfigDir, `${groupId}.yaml`);
 
         if (fs.existsSync(filePath)) {
             let config = parse(fs.readFileSync(filePath, 'utf8'))

@@ -21,8 +21,10 @@ export class recall extends plugin {
     }
     
     async recallMessage(e) {
-        const groupId = e.group_id
-        const filePath = path.join(pluginData, `${groupId}.yaml`)
+        const botId = e.self_id
+        const groupId = e.group_id;
+        const botConfigDir = path.join(pluginData, botId.toString());
+        const filePath = path.join(botConfigDir, `${groupId}.yaml`);
 
         if (e.image || e.face) {
             logger.mark(`群 ${groupId} 的消息包含图片或表情，直接放行。`)
@@ -46,9 +48,14 @@ export class recall extends plugin {
     
             const recallEnabled = config?.recall_enabled
             const keywords = config?.keywords || []
-    
             if (!recallEnabled || !Array.isArray(keywords)) return true
-    
+
+            const folderSelfId = path.basename(path.dirname(filePath));
+            if (folderSelfId !== botId.toString()) {
+                logger.mark(`当前机器人ID ${botId} 与配置文件路径中的ID ${folderSelfId} 不一致，跳过撤回任务。`);
+                return true;
+            }
+
             for (let keyword of keywords) {
                 if (typeof keyword === 'string' && e.msg && e.msg.includes(keyword)) {
                     if (e.group && typeof e.group.recallMsg === 'function') {
