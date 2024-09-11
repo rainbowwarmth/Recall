@@ -1,8 +1,0 @@
-# 插件更新优先级
-update: -114514
-# 插件设置优先级
-setRecall: -114514
-# 违禁词优先级
-BannedWord: -114514
-# 消息撤回优先级
-recallMessage: -114514
