@@ -1,2 +1,2 @@
 # Recall
-Yunzai云崽 消息撤回 RecallMessage 插件
+Yunzai云崽 消息撤回 RecallMessage js插件
