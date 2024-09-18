@@ -39,23 +39,28 @@
              rule: [
                  {
                      reg: "^#开启群撤回$",  // 触发命令的正则
-                     fnc: 'enableRecall'
+                     fnc: 'enableRecall',
+                     permission: 'admin'
                  },
                  {
                      reg: "^#关闭群撤回$",  // 触发命令的正则
-                     fnc: 'disableRecall'
+                     fnc: 'disableRecall',
+                     permission: 'admin'
                  },
                  {
                      reg: "^#违禁词添加 (.+)$",  // 添加违禁词的正则
-                     fnc: 'addBannedWord'
+                     fnc: 'addBannedWord',
+                     permission: 'admin'
                  },
                  {
                      reg: "^#违禁词删除 (.+)$",  // 删除违禁词的正则
-                     fnc: 'deleteBannedWord'
+                     fnc: 'deleteBannedWord',
+                     permission: 'admin'
                  },
                  {
                      reg: "^#查看违禁词$",  // 查看违禁词的正则
-                     fnc: 'viewBannedWords'
+                     fnc: 'viewBannedWords',
+                     permission: 'admin'
                  },
                  {
                      reg: ".*",  // 匹配所有消息
@@ -64,7 +69,10 @@
              ]
          })
      }
-     
+    
+  /**
+   * 处理群消息撤回关闭
+   */
     async enableRecall(e) {
         const botId = e.self_id;
         const groupId = e.group_id;
@@ -81,20 +89,18 @@
             if (!fs.lstatSync(filePath).isFile()) {
                 fs.rmdirSync(filePath);
                 fs.writeFileSync(filePath, '', 'utf8');
-        }
-    }
-    if (fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()) {
-        try {
-            let config = parse(fs.readFileSync(filePath, 'utf8'));
-            if (config === null) {
-                config = {};
             }
-
-            // 补充必要的属性
+        }
+        if (fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()) {
+            try {
+                let config = parse(fs.readFileSync(filePath, 'utf8'));
+                if (config === null) {
+                    config = {};
+                }
+            
             config.group_id = groupId;
             config.recall_enabled = true;
             config.keywords = config.keywords || [];
-
             fs.writeFileSync(filePath, stringify(config), 'utf8');
             e.reply('本群已开启自动撤回功能。');
         } catch (error) {
@@ -106,13 +112,13 @@
             group_id: groupId,
             recall_enabled: true,
             keywords: []
-        };
+        }
         fs.writeFileSync(filePath, stringify(defaultConfig), 'utf8');
-        e.reply('已为本群开启自动撤回功能。');
+        e.reply('已为本群开启自动撤回功能。')
     }
 
-    logger.mark(`群 ${groupId} 已开启自动撤回功能。`);
-    return false;
+    logger.mark(`群 ${groupId} 已开启自动撤回功能。`)
+    return false
 }
 
   /**
