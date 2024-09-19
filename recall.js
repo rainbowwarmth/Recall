@@ -3,7 +3,7 @@
  制作人：xinixinxin, rainbowwarmth
  注意：
  1.需要机器人有管理员权限
- 2.如果使用TRSS-Yunzai的OneBotV11适配器无法撤回消息，请修改OneBotV11.js将第131-139代码改为下面代码
+ 2.如果使用TRSS-Yunzai的OneBotV11适配器无法撤回消息，请修改OneBotV11.js将第131-139行代码改为下面代码
   
  async recallMsg(data, message_id) {
     Bot.makeLog("info", `撤回消息：${message_id}`, data.self_id)
