@@ -1,4 +1,4 @@
-# Recall
+# Recall Js 插件
 Yunzai云崽 消息撤回 RecallMessage js插件
 
 ## 文件结构
