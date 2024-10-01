@@ -1,5 +1,5 @@
 /**
- 更新时间：2024/9/18
+ 更新时间：2024/10/1
  制作人：xinixinxin, rainbowwarmth
  注意：
  1.需要机器人有管理员权限
@@ -260,6 +260,7 @@
   async recallMessage(e) {
       const botId = e.self_id
       const groupId = e.group_id
+      const senderCard = e.sender.card || e.sender.nickname
       const botConfigDir = path.join('./data/recallGroups', botId.toString())
       const filePath = path.join(botConfigDir, `${groupId}.yaml`)
   
@@ -298,7 +299,7 @@
               if (typeof keyword === 'string' && e.msg && e.msg.includes(keyword)) {
                   if (e.group && typeof e.group.recallMsg === 'function') {
                       await e.group.recallMsg(e.message_id)
-                      logger.mark(`群 ${groupId} 的消息 "${e.msg}" 已被撤回，触发违禁词：${keyword}`)
+                       logger.mark(`[recall][消息撤回] 群消息 "${e.msg}" 已被撤回, 原因:${keyword}, 成员: ${senderCard}(${e.user_id}), 来源群聊: ${e.group_name}(${e.group_id})`)
                       return false
                   } else {
                       logger.mark(`无法撤回消息，群组对象未定义或 recallMsg 方法不可用。`)
