@@ -73,6 +73,11 @@ export class recall extends plugin {
                     permission: 'admin'
                 },
                 {
+                    reg: "^#设置违规推送 (.+)$",
+                    fnc: 'setViolationPush',
+                    permission: 'admin'
+                },
+                {
                     reg: ".*",
                     fnc: 'recallMessage'
                 }
@@ -113,6 +118,7 @@ export class recall extends plugin {
                 config.keywords = config.keywords || []
                 config.action = config.action || '3'
                 config.mute_duration = config.mute_duration || 60
+                config.push_set = false
                 fs.writeFileSync(filePath, stringify(config), 'utf8')
                 e.reply('本群已开启自动撤回功能。')
             } catch (error) {
@@ -125,7 +131,8 @@ export class recall extends plugin {
                 recall_enabled: true,
                 keywords: [],
                 action: '3',
-                mute_duration: 60
+                mute_duration: 60,
+                push_set: false
             }
             fs.writeFileSync(filePath, stringify(defaultConfig), 'utf8')
             e.reply('已为本群开启自动撤回功能。')
@@ -322,6 +329,53 @@ export class recall extends plugin {
   
     return false
 }
+
+   /**
+   * 设置违规推送功能
+   */
+   async setViolationPush(e) { 
+    const botId = e.self_id
+    const groupId = e.group_id
+    const botConfigDir = path.join('./data/recallGroups', botId.toString())
+    const filePath = path.join(botConfigDir, `${groupId}.yaml`)
+
+    const match = e.msg.match(/^#设置违规推送 (.+)$/)
+    if (!match) {
+      e.reply('命令格式错误，请使用：#设置违规推送 开启 或 #设置违规推送 关闭')
+      return false
+    }
+  
+    const pushFlag = match[1].trim()
+
+    if (pushFlag !== '开启' && pushFlag !== '关闭') {
+      e.reply('无效的参数，请输入 开启 或 关闭')
+      return false
+    }
+
+    if (fs.existsSync(filePath)) {
+        let config
+        try {
+            config = parse(fs.readFileSync(filePath, 'utf8'))
+        } catch (error) {
+            e.reply(`读取配置文件出错: ${error.message}`)
+            return false;
+        }
+        
+        config.push_set = (pushFlag === '开启')
+        try {
+            fs.writeFileSync(filePath, stringify(config), 'utf8')
+            e.reply(`违规推送设置已更新为：${pushFlag}`)
+        } catch (error) {
+            e.reply(`写入配置文件时出错: ${error.message}`)
+        }
+    } else {
+        e.reply('本群尚未开启自动撤回功能，请先使用 #开启群撤回 命令。')
+    }
+  
+    return false
+  }
+  
+
    /**
    * 处理消息撤回逻辑
    */
@@ -355,10 +409,9 @@ export class recall extends plugin {
         const recallEnabled = config?.recall_enabled
         const keywords = config?.keywords || []
         const action = config?.action || '3'
-        const mute_duration = config.mute_duration || 60
-
+        const mute_duration = config?.mute_duration || 60
+        const push_set = config?.push_set
         if (!recallEnabled || !Array.isArray(keywords)) return true
-
         const folderSelfId = path.basename(path.dirname(filePath))
         if (folderSelfId !== botId.toString()) {
              logger.mark(`当前机器人ID ${botId} 与配置文件路径中的ID ${folderSelfId} 不一致，跳过撤回任务。`)
@@ -371,25 +424,35 @@ export class recall extends plugin {
                   switch (action) {
                     case '1':
                       await e.group.kickMember(e.user_id)
-                      e.reply(`${senderCard} 已被踢出群聊，触发违禁词：${keyword}`)
+                      if (push_set) {
+                        e.reply(`${senderCard} 已被踢出群聊，触发违禁词：${keyword}`)
+                      }
                       break
                     case '2':
                       await e.group.muteMember(e.user_id, mute_duration);
-                      e.reply(`${senderCard} 已被禁言，触发违禁词：${keyword}`)
+                      if (push_set) {
+                        e.reply(`${senderCard} 已被禁言，触发违禁词：${keyword}`)
+                      }
                       break
                     case '3':
                       await e.group.recallMsg(e.message_id)
-                      e.reply(`消息已撤回，触发违禁词：${keyword}`)
+                      if (push_set) {
+                        e.reply(`消息已撤回，触发违禁词：${keyword}`)
+                      }
                       break;
                     case '4':
                       await e.group.kickMember(e.user_id)
                       await e.group.recallMsg(e.message_id)
-                      e.reply(`${senderCard} 已被踢出并消息已撤回，触发违禁词：${keyword}`)
+                      if (push_set) {
+                        e.reply(`${senderCard} 已被踢出并消息已撤回，触发违禁词：${keyword}`)
+                      }
                       break
                     case '5':
                       await e.group.muteMember(e.user_id, mute_duration)
                       await e.group.recallMsg(e.message_id)
-                      e.reply(`${senderCard} 已被禁言并消息已撤回，触发违禁词：${keyword}`)
+                      if (push_set) {
+                        e.reply(`${senderCard} 已被禁言并消息已撤回，触发违禁词：${keyword}`)
+                      }
                       break
                     }
                     return false
