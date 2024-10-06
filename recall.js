@@ -1,27 +1,8 @@
 /**
- 更新时间：2024/10/5
+ 更新时间：2024/10/6
  制作人：xinixinxin, rainbowwarmth
  注意：
- 1.需要机器人有管理员权限
- 2.如果使用TRSS-Yunzai的OneBotV11适配器无法撤回消息，请修改OneBotV11.js将第131-139行代码改为下面代码
-  
- async recallMsg(data, message_id) {
-    Bot.makeLog("info", `撤回消息：${message_id}`, data.self_id)
-    if (!Array.isArray(message_id))
-      message_id = [message_id]
-    const results = await Promise.all(
-        message_id.map(async i => {
-            try {
-                const result = await data.bot.sendApi("delete_msg", { message_id: i });
-                Bot.makeLog("success", `成功撤回消息 ${i}`, data.self_id);
-                return result;
-            } catch (error) {
-                return null
-            }
-        })
-    );
-    return results.filter(result => result !== null)
-}
+ 需要机器人有管理员权限
  */
 
 import plugin from '../../lib/plugins/plugin.js'
