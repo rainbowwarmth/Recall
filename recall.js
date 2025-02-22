@@ -1,449 +1,289 @@
 /**
- 更新时间：2025/02/03
+ 更新时间：2025/02/22
  制作人：xinixinxin, rainbowwarmth
  注意：
  需要机器人有管理员权限
  */
+import plugin from '../../lib/plugins/plugin.js'
+import fs from 'fs/promises'
+import path from 'path'
+import { parse, stringify } from 'yaml'
 
- import plugin from '../../lib/plugins/plugin.js'
- import fs from 'fs'
- import path from 'path'
- import { parse, stringify } from 'yaml'
- 
- export class recall extends plugin {
-     constructor() {
-         super({
-             name: '自动撤回',
-             dsc: '自动撤回含有特定违禁词的消息',
-             event: 'message',
-             priority: 100,
-             rule: [
-                 {
-                     reg: "^#开启群撤回$",
-                     fnc: 'enableRecall',
-                     permission: 'admin'
-                 },
-                 {
-                     reg: "^#关闭群撤回$",
-                     fnc: 'disableRecall',
-                     permission: 'admin'
-                 },
-                 {
-                     reg: "^#违禁词添加 (.+)$",
-                     fnc: 'addBannedWord',
-                     permission: 'admin'
-                 },
-                 {
-                     reg: "^#违禁词删除 (.+)$",
-                     fnc: 'deleteBannedWord',
-                     permission: 'admin'
-                 },
-                 {
-                     reg: "^#查看违禁词$",
-                     fnc: 'viewBannedWords',
-                     permission: 'admin'
-                 },
-                 {
-                     reg: "^#设置违禁词处理方式 (.+)$",
-                     fnc: 'setBannedWordAction',
-                     permission: 'admin'
-                 },
-                 {
-                     reg: "^#设置禁言时间 (.+)$",
-                     fnc: 'setMuteDuration',
-                     permission: 'admin'
-                 },
-                 {
-                     reg: "^#设置违规推送 (.+)$",
-                     fnc: 'setViolationPush',
-                     permission: 'admin'
-                 },
-                 {
-                     reg: ".*",
-                     fnc: 'recallMessage',
-                     log: false
-                 }
-             ]
-         })
-     }
-    
-    /**
-    * 处理群消息撤回开启
-    */
-    async enableRecall(e) {
-        const botId = e.self_id
-        const groupId = e.group_id
-        const botConfigDir = path.join('./data/recallGroups', botId.toString())
-        if (!fs.existsSync(botConfigDir)) {
-            fs.mkdirSync(botConfigDir, { recursive: true })
-        }
-        
-        const filePath = path.join(botConfigDir, `${groupId}.yaml`)
-        
-        if (!fs.existsSync(filePath)) {
-            fs.writeFileSync(filePath, '', 'utf8')
-         } else {
-             if (!fs.lstatSync(filePath).isFile()) {
-                 fs.rmdirSync(filePath)
-                 fs.writeFileSync(filePath, '', 'utf8')
-             }
-         }
-         if (fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()) {
-             try {
-                 let config = parse(fs.readFileSync(filePath, 'utf8'))
-                 if (config === null) {
-                     config = {}
-                 }
-                 
-                 config.group_id = groupId
-                 config.recall_enabled = true
-                 config.keywords = config.keywords || []
-                 config.action = config.action || '3'
-                 config.mute_duration = config.mute_duration || 60
-                 config.push_set = false
-                 fs.writeFileSync(filePath, stringify(config), 'utf8')
-                 e.reply('本群已开启自动撤回功能。')
-             } catch (error) {
-                 logger.error(`读取配置文件 ${filePath} 时出错: ${error.message}`)
-                 return true
-             }
-         } else {
-             const defaultConfig = {
-                 group_id: groupId,
-                 recall_enabled: true,
-                 keywords: [],
-                 action: '3',
-                 mute_duration: 60,
-                 push_set: false
-             }
-             fs.writeFileSync(filePath, stringify(defaultConfig), 'utf8')
-             e.reply('已为本群开启自动撤回功能。')
-         }
-         logger.mark(`群 ${groupId} 已开启自动撤回功能。`)
-         return false
-     }
- 
-    /**
-    * 处理群消息撤回关闭
-    */
-    async disableRecall(e) {
-     const botId = e.self_id
-     const groupId = e.group_id
-     const botConfigDir = path.join('./data/recallGroups', botId.toString())
-     if (!fs.existsSync(botConfigDir)) {
-         fs.mkdirSync(botConfigDir, { recursive: true })
-     }
-     const filePath = path.join(botConfigDir, `${groupId}.yaml`)
-     
-     if (fs.existsSync(filePath)) {
-         let config = parse(fs.readFileSync(filePath, 'utf8'))
-         config.recall_enabled = false;
-         fs.writeFileSync(filePath, stringify(config))
-         e.reply('本群已关闭自动撤回功能。')
-     } else {
-         e.reply('本群尚未开启自动撤回功能。')
-     }
-     
-     logger.mark(`群 ${groupId} 已关闭自动撤回功能。`)
-     return false
+const CONFIG_DIR = './data/recallGroups'
+const DEFAULT_CONFIG = {
+  group_id: null,
+  recall_enabled: false,
+  keywords: [],
+  action: '3',
+  mute_duration: 60,
+  push_set: false
+}
+const VALID_ACTIONS = new Set(['1', '2', '3', '4', '5'])
+
+class ConfigManager {
+  constructor(botId, groupId) {
+    this.botId = botId
+    this.groupId = groupId
+    this.configPath = path.join(CONFIG_DIR, botId.toString(), `${groupId}.yaml`)
+  }
+
+  async ensureConfigDir() {
+    try {
+      await fs.mkdir(path.dirname(this.configPath), { recursive: true })
+    } catch (error) {
+      logger.error(`创建配置目录失败: ${error.message}`)
+      throw error
     }
-    
-    /**
-     * 添加群违禁词
-     */
-    async addBannedWord(e) {
-     const botId = e.self_id
-     const groupId = e.group_id
-     const botConfigDir = path.join('./data/recallGroups', botId.toString())
-     if (!groupId) {
-         return true
-     }
-     
-     const filePath = path.join(botConfigDir, `${groupId}.yaml`)
-     if (fs.existsSync(filePath)) {
-         let config = parse(fs.readFileSync(filePath, 'utf8'))
-         const newBannedWord = e.msg.match(/^#违禁词添加 (.+)$/)[1].trim()
-         
-         if (typeof newBannedWord !== 'string' || newBannedWord.length === 0) {
-             e.reply('违禁词无效。');
-             logger.mark(`群 ${groupId} 添加违禁词失败，违禁词无效：${newBannedWord}`)
-             return false;
-         }
-         
-         if (!config.keywords.includes(newBannedWord)) {
-             config.keywords.push(newBannedWord);
-             fs.writeFileSync(filePath, stringify(config))
-             e.reply(`违禁词 "${newBannedWord}" 已添加。`)
-             logger.mark(`群 ${groupId} 添加违禁词：${newBannedWord}`)
-         } else {
-             e.reply(`违禁词 "${newBannedWord}" 已存在。`)
-             logger.mark(`群 ${groupId} 违禁词已存在：${newBannedWord}`)
-         }
-     } else {
-         e.reply('本群尚未开启自动撤回功能，请先使用 #开启群撤回 命令。')
-         logger.mark(`群 ${groupId} 添加违禁词失败，尚未开启自动撤回功能。`)
-     }
- 
-     return false
- }
- 
-    /**
-    * 删除群违禁词
-    */
-    async deleteBannedWord(e) {
-     const botId = e.self_id
-     const groupId = e.group_id
-     const botConfigDir = path.join('./data/recallGroups', botId.toString())
-     if (!groupId) {
-         return true
-     }
-     const filePath = path.join(botConfigDir, `${groupId}.yaml`)
-     
-     if (fs.existsSync(filePath)) {
-         let config = parse(fs.readFileSync(filePath, 'utf8'))
-         const bannedWordToDelete = e.msg.match(/^#违禁词删除 (.+)$/)[1].trim()
-         
-         if (typeof bannedWordToDelete !== 'string' || bannedWordToDelete.length === 0) {
-             e.reply('违禁词无效。');
-             logger.mark(`群 ${groupId} 删除违禁词失败，违禁词无效：${bannedWordToDelete}`)
-             return false;
-         }
-         
-         if (config.keywords.includes(bannedWordToDelete)) {
-             config.keywords = config.keywords.filter(kw => kw !== bannedWordToDelete)
-             fs.writeFileSync(filePath, stringify(config), 'utf8')
-             e.reply(`违禁词 "${bannedWordToDelete}" 已删除。`)
-             logger.mark(`群 ${groupId} 删除违禁词：${bannedWordToDelete}`)
-         } else {
-             e.reply(`违禁词 "${bannedWordToDelete}" 不存在。`)
-             logger.mark(`群 ${groupId} 删除违禁词失败，违禁词不存在：${bannedWordToDelete}`)
-         }
-     } else {
-         e.reply('本群尚未开启自动撤回功能，请先使用 #开启群撤回 命令。')
-         logger.mark(`群 ${groupId} 删除违禁词失败，尚未开启自动撤回功能。`)
-     }
-     
-     return false
- }
- 
-    /**
-    * 查看群违禁词
-    */
-    async viewBannedWords(e) {
-     const botId = e.self_id
-     const groupId = e.group_id
-     const botConfigDir = path.join('./data/recallGroups', botId.toString())
-     if (!groupId) {
-         return true
-     }
-     const filePath = path.join(botConfigDir, `${groupId}.yaml`)
- 
-     if (fs.existsSync(filePath)) {
-         let config = parse(fs.readFileSync(filePath, 'utf8'))
-         const keywords = config.keywords
- 
-         if (keywords.length > 0) {
-             e.reply(await Bot.makeForwardArray([`本群当前的违禁词列表:\n- ${keywords.join('\n- ')}`]))
-         } else {
-             e.reply('本群当前没有设置违禁词。')
-         }
- 
-         logger.mark(`群 ${groupId} 查看违禁词列表: ${keywords}`)
-     } else {
-         e.reply('本群尚未开启自动撤回功能，请先使用 #开启群撤回 命令。')
-         logger.mark(`群 ${groupId} 查看违禁词列表失败，尚未开启自动撤回功能。`)
-     }
- 
-     return false
- }
- 
-    /**
-    * 设置违禁词处理方式
-    */
-    async setBannedWordAction(e) {
-     const botId = e.self_id
-     const groupId = e.group_id
-     const botConfigDir = path.join('./data/recallGroups', botId.toString())
-     const filePath = path.join(botConfigDir, `${groupId}.yaml`)
-     const action = e.msg.match(/^#设置违禁词处理方式 (.+)$/)[1].trim()
-     const validActions = ['1', '2', '3', '4', '5']
-     
-     if (!validActions.includes(action)) {
-         e.reply(`无效的处理方式，请选择以下之一：${validActions.join(', ')}`)
-         return false
-     }
-     
-     if (fs.existsSync(filePath)) {
-         let config = parse(fs.readFileSync(filePath, 'utf8'))
-         config.action = action;
-         fs.writeFileSync(filePath, stringify(config), 'utf8')
-         e.reply(`违禁词处理方式已设为：${action}`)
-     } else {
-         e.reply('本群尚未开启自动撤回功能，请先使用 #开启群撤回 命令。')
-     }
-     
-     return false
- }
- 
-    /**
-    * 设置禁言时间
-    */
-    async setMuteDuration(e) {
-     const botId = e.self_id
-     const groupId = e.group_id
-     const botConfigDir = path.join('./data/recallGroups', botId.toString())
-     const filePath = path.join(botConfigDir, `${groupId}.yaml`)
-     const muteDuration = parseInt(e.msg.match(/^#设置禁言时间 (.+)$/)[1].trim(), 10)
-   
-     if (isNaN(muteDuration) || muteDuration <= 0) {
-       e.reply('无效的禁言时间，请输入一个正整数。')
-       return false
-     }
-   
-     if (fs.existsSync(filePath)) {
-       let config = parse(fs.readFileSync(filePath, 'utf8'))
-       config.mute_duration = muteDuration;
-       fs.writeFileSync(filePath, stringify(config), 'utf8')
-       e.reply(`禁言时间已设置为：${muteDuration} 秒`)
-     } else {
-       e.reply('本群尚未开启自动撤回功能，请先使用 #开启群撤回 命令。')
-     }
-   
-     return false
- }
- 
-    /**
-    * 设置违规推送功能
-    */
-    async setViolationPush(e) { 
-     const botId = e.self_id
-     const groupId = e.group_id
-     const botConfigDir = path.join('./data/recallGroups', botId.toString())
-     const filePath = path.join(botConfigDir, `${groupId}.yaml`)
- 
-     const match = e.msg.match(/^#设置违规推送 (.+)$/)
-     if (!match) {
-       e.reply('命令格式错误，请使用：#设置违规推送 开启 或 #设置违规推送 关闭')
-       return false
-     }
-   
-     const pushFlag = match[1].trim()
- 
-     if (pushFlag !== '开启' && pushFlag !== '关闭') {
-       e.reply('无效的参数，请输入 开启 或 关闭')
-       return false
-     }
- 
-     if (fs.existsSync(filePath)) {
-         let config
-         try {
-             config = parse(fs.readFileSync(filePath, 'utf8'))
-         } catch (error) {
-             e.reply(`读取配置文件出错: ${error.message}`)
-             return false;
-         }
-         
-         config.push_set = (pushFlag === '开启')
-         try {
-             fs.writeFileSync(filePath, stringify(config), 'utf8')
-             e.reply(`违规推送设置已更新为：${pushFlag}`)
-         } catch (error) {
-             e.reply(`写入配置文件时出错: ${error.message}`)
-         }
-     } else {
-         e.reply('本群尚未开启自动撤回功能，请先使用 #开启群撤回 命令。')
-     }
-   
-     return false
-   }
-   
- 
-    /**
-    * 处理消息撤回逻辑
-    */
-    async recallMessage(e) {
-     const botId = e.self_id
-     const groupId = e.group_id
-     const senderCard = e.sender.card || e.sender.nickname
-     const botConfigDir = path.join('./data/recallGroups', botId.toString())
-     const filePath = path.join(botConfigDir, `${groupId}.yaml`)
-  
-     if (e.image || e.face) {
-         logger.mark(`群 ${groupId} 的消息包含图片或表情，直接放行。`)
-         return true
-     }
-  
-     const facePattern = /\[<face,id=\d+>\]/
-     if (e.msg && facePattern.test(e.msg)) {
-         logger.mark(`群 ${groupId} 的消息 "${e.msg}" 被过滤，包含特定表情格式。`)
-         return false
-     }
- 
-     if (fs.existsSync(filePath)) {
-         let config
-         try {
-             config = parse(fs.readFileSync(filePath, 'utf8'))
-         } catch (error) {
-             logger.error(`读取配置文件 ${filePath} 时出错: ${error.message}`)
-             return true;
-         }
-  
-         const recallEnabled = config?.recall_enabled
-         const keywords = config?.keywords || []
-         const action = config?.action || '3'
-         const mute_duration = config?.mute_duration || 60
-         const push_set = config?.push_set
-         if (!recallEnabled || !Array.isArray(keywords)) return true
-         const folderSelfId = path.basename(path.dirname(filePath))
-         if (folderSelfId !== botId.toString()) {
-              logger.mark(`当前机器人ID ${botId} 与配置文件路径中的ID ${folderSelfId} 不一致，跳过撤回任务。`)
-              return true
-         }
- 
-         for (let keyword of keywords) {
-              if (typeof keyword === 'string' && e.msg && e.msg.includes(keyword)) {
-                  if (e.group && typeof e.group.recallMsg === 'function') {
-                   switch (action) {
-                     case '1':
-                       await e.group.kickMember(e.user_id)
-                       if (push_set) {
-                         e.reply(`${senderCard} 已被踢出群聊，触发违禁词：${keyword}`)
-                       }
-                       break
-                     case '2':
-                       await e.group.muteMember(e.user_id, mute_duration);
-                       if (push_set) {
-                         e.reply(`${senderCard} 已被禁言，触发违禁词：${keyword}`)
-                       }
-                       break
-                     case '3':
-                       await e.group.recallMsg(e.message_id)
-                       if (push_set) {
-                         e.reply(`消息已撤回，触发违禁词：${keyword}`)
-                       }
-                       break;
-                     case '4':
-                       await e.group.kickMember(e.user_id)
-                       await e.group.recallMsg(e.message_id)
-                       if (push_set) {
-                         e.reply(`${senderCard} 已被踢出并消息已撤回，触发违禁词：${keyword}`)
-                       }
-                       break
-                     case '5':
-                       await e.group.muteMember(e.user_id, mute_duration)
-                       await e.group.recallMsg(e.message_id)
-                       if (push_set) {
-                         e.reply(`${senderCard} 已被禁言并消息已撤回，触发违禁词：${keyword}`)
-                       }
-                       break
-                     }
-                     return false
-                  } else {
-                      logger.mark(`无法撤回消息，群组对象未定义或 recallMsg 方法不可用。`)
-                  }
-              }
-          }
+  }
+
+  async loadConfig() {
+    try {
+      const content = await fs.readFile(this.configPath, 'utf8')
+      return { ...DEFAULT_CONFIG, ...parse(content) }
+    } catch (error) {
+      if (error.code === 'ENOENT') return null
+      logger.error(`读取配置文件失败: ${error.message}`)
+      throw error
+    }
+  }
+
+  async saveConfig(config) {
+    try {
+      await this.ensureConfigDir()
+      await fs.writeFile(this.configPath, stringify(config))
+    } catch (error) {
+      logger.error(`保存配置文件失败: ${error.message}`)
+      throw error
+    }
+  }
+}
+
+export class Recall extends plugin {
+    constructor() {
+      super({
+        name: '自动撤回',
+        dsc: '自动撤回含有特定违禁词的消息',
+        event: 'message',
+        priority: 100,
+        rule: [
+          {reg: "^#(开启|关闭)群撤回$", fnc: 'RecallSet', permission: 'admin'},
+          {reg: "^#违禁词(添加|删除) (.+)$", fnc: 'BannedWordSet', permission: 'admin'},
+          {reg: "^#查看违禁词$", fnc: 'viewBannedWords', permission: 'admin'},
+          {reg: "^#设置(违禁词处理方式|禁言时间|违规推送) (.+)$", fnc: 'InfractionSet', permission: 'admin'},
+          {reg: ".*", fnc: 'recallMessage', log: false}
+        ]
+      })
+  }
+
+  async RecallSet(e) {
+    const [_, operation] = e.msg.match(/^#(开启|关闭)群撤回$/)
+    const config = new ConfigManager(e.self_id, e.group_id)
+
+    try {
+      if (operation === '开启') {
+        const newConfig = { ...DEFAULT_CONFIG, group_id: e.group_id, recall_enabled: true }
+        await config.saveConfig(newConfig)
+        e.reply('已为本群开启自动撤回功能。')
+        logger.mark(`群 ${e.group_id} 开启自动撤回`)
+      } else {
+        const existing = await config.loadConfig()
+        if (existing) {
+          await config.saveConfig({ ...existing, recall_enabled: false })
+          e.reply('本群已关闭自动撤回功能。')
+        } else {
+          e.reply('本群尚未开启自动撤回功能。')
+        }
       }
+    } catch (error) {
+      e.reply('操作失败，请检查日志')
+      logger.error(`RecallSet 操作失败: ${error.message}`)
+    }
+    return false
+  }
+
+  async BannedWordSet(e) {
+    const [_, operation, keyword] = e.msg.match(/^#违禁词(添加|删除) (.+)$/)
+    const config = new ConfigManager(e.self_id, e.group_id)
+    
+    try {
+      const current = await config.loadConfig()
+      if (!current?.recall_enabled) {
+        return this.replyWithStatus(e, '本群尚未开启自动撤回功能')
+      }
+
+      const keywords = new Set(current.keywords)
+      const verb = operation === '添加' ? 'add' : 'delete'
+
+      if (verb === 'add') {
+        if (keywords.has(keyword)) {
+          e.reply(`违禁词 "${keyword}" 已存在`)
+        } else {
+          keywords.add(keyword)
+          await config.saveConfig({ ...current, keywords: [...keywords] })
+          e.reply(`违禁词 "${keyword}" 已添加`)
+        }
+      } else {
+        if (keywords.delete(keyword)) {
+          await config.saveConfig({ ...current, keywords: [...keywords] })
+          e.reply(`违禁词 "${keyword}" 已删除`)
+        } else {
+          e.reply(`违禁词 "${keyword}" 不存在`)
+        }
+      }
+    } catch (error) {
+      this.handleError(e, 'BannedWordSet', error)
+    }
+    return false
+  }
+
+  async viewBannedWords(e) {
+    const config = new ConfigManager(e.self_id, e.group_id)
+    
+    try {
+      const current = await config.loadConfig()
+      if (!current?.recall_enabled) {
+        return this.replyWithStatus(e, '本群尚未开启自动撤回功能')
+      }
+
+      const keywords = current.keywords
+      keywords.length > 0 
+        ? e.reply(await this.formatKeywords(keywords))
+        : e.reply('本群当前没有设置违禁词')
+    } catch (error) {
+      this.handleError(e, 'viewBannedWords', error)
+    }
+    return false
+  }
+
+  async InfractionSet(e) {
+    const [_, settingType, value] = e.msg.match(/^#设置(违禁词处理方式|禁言时间|违规推送) (.+)$/)
+    
+    try {
+      const handler = {
+        '违禁词处理方式': this.handleActionSetting,
+        '禁言时间': this.handleMuteSetting,
+        '违规推送': this.handlePushSetting
+      }[settingType]
+
+      return handler ? await handler.call(this, e, value) : false
+    } catch (error) {
+      this.handleError(e, 'InfractionSet', error)
       return false
     }
- }
+  }
+
+  async handleActionSetting(e, value) {
+    if (!VALID_ACTIONS.has(value)) {
+      e.reply(`无效操作类型，有效值: ${[...VALID_ACTIONS].join(', ')}`)
+      return false
+    }
+
+    const config = new ConfigManager(e.self_id, e.group_id)
+    const current = await this.ensureConfig(config)
+    await config.saveConfig({ ...current, action: value })
+    e.reply(`处理方式已设置为: ${value}`)
+    return false
+  }
+
+  async handleMuteSetting(e, value) {
+    const duration = parseInt(value, 10)
+    if (isNaN(duration) || duration <= 0) {
+      e.reply('请输入有效的正整数时间（秒）')
+      return false
+    }
+
+    const config = new ConfigManager(e.self_id, e.group_id)
+    const current = await this.ensureConfig(config)
+    await config.saveConfig({ ...current, mute_duration: duration })
+    e.reply(`禁言时间已设置为: ${duration}秒`)
+    return false
+  }
+
+  async handlePushSetting(e, value) {
+    const flag = value === '开启'
+    const config = new ConfigManager(e.self_id, e.group_id)
+    const current = await this.ensureConfig(config)
+    await config.saveConfig({ ...current, push_set: flag })
+    e.reply(`违规推送已${flag ? '开启' : '关闭'}`)
+    return false
+  }
+
+  async recallMessage(e) {
+    if (this.shouldSkipProcessing(e)) return true
+
+    const config = new ConfigManager(e.self_id, e.group_id)
+    try {
+      const current = await config.loadConfig()
+      if (!current?.recall_enabled) return true
+
+      const matchedKeyword = current.keywords.find(kw => e.msg?.includes(kw))
+      if (!matchedKeyword) return true
+
+      await this.applyAction(e, current, matchedKeyword)
+      return false
+    } catch (error) {
+      logger.error(`消息撤回失败: ${error.message}`)
+      return true
+    }
+  }
+
+  async ensureConfig(config) {
+    const current = await config.loadConfig()
+    if (!current) throw new Error('配置不存在')
+    return current
+  }
+
+  replyWithStatus(e, message) {
+    e.reply(message)
+    return false
+  }
+
+  handleError(e, context, error) {
+    e.reply('操作失败，请稍后重试')
+    logger.error(`${context} 错误: ${error.message}`)
+  }
+
+  async formatKeywords(keywords) {
+    return Bot.makeForwardArray([`违禁词列表:\n${keywords.map(k => `- ${k}`).join('\n')}`])
+  }
+
+  shouldSkipProcessing(e) {
+    return e.image || e.face || /\[<face,id=\d+>\]/.test(e.msg)
+  }
+
+  async applyAction(e, config, keyword) {
+    const actions = {
+      '1': async () => {
+        await e.group.kickMember(e.user_id)
+        return '踢出群聊'
+      },
+      '2': async () => {
+        await e.group.muteMember(e.user_id, config.mute_duration)
+        return '禁言'
+      },
+      '3': async () => {
+        await e.group.recallMsg(e.message_id)
+        return '撤回消息'
+      },
+      '4': async () => {
+        await Promise.all([
+          e.group.kickMember(e.user_id),
+          e.group.recallMsg(e.message_id)
+        ])
+        return '踢出并撤回'
+      },
+      '5': async () => {
+        await Promise.all([
+          e.group.muteMember(e.user_id, config.mute_duration),
+          e.group.recallMsg(e.message_id)
+        ])
+        return '禁言并撤回'
+      }
+    }
+
+    const actionResult = await actions[config.action]?.()
+    if (config.push_set && actionResult) {
+      e.reply(`${e.sender.card || e.sender.nickname} 因触发违禁词 [${keyword}] 已被${actionResult}`)
+    }
+  }
+}
