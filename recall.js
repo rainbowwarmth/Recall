@@ -75,6 +75,7 @@ export class Recall extends plugin {
       })
   }
 
+  /** 开启/关闭群撤回 */
   async RecallSet(e) {
     const [_, operation] = e.msg.match(/^#(开启|关闭)群撤回$/)
     const config = new ConfigManager(e.self_id, e.group_id)
@@ -101,6 +102,7 @@ export class Recall extends plugin {
     return false
   }
 
+  /** 违禁词添加/删除 */
   async BannedWordSet(e) {
     const [_, operation, keyword] = e.msg.match(/^#违禁词(添加|删除) (.+)$/)
     const config = new ConfigManager(e.self_id, e.group_id)
@@ -136,6 +138,7 @@ export class Recall extends plugin {
     return false
   }
 
+  /**查看违禁词 */
   async viewBannedWords(e) {
     const config = new ConfigManager(e.self_id, e.group_id)
     
@@ -155,6 +158,7 @@ export class Recall extends plugin {
     return false
   }
 
+  /**设置违禁词处理方式/禁言时间/违规推送*/
   async InfractionSet(e) {
     const [_, settingType, value] = e.msg.match(/^#设置(违禁词处理方式|禁言时间|违规推送) (.+)$/)
     
