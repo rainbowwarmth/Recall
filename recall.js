@@ -1,5 +1,5 @@
 /**
- 更新时间：2025/02/22
+ 更新时间：2025/03/10
  制作人：xinixinxin, rainbowwarmth
  注意：
  需要机器人有管理员权限
@@ -213,24 +213,23 @@ export class Recall extends plugin {
   }
 
   async recallMessage(e) {
-    if (this.shouldSkipProcessing(e)) return true
-
+    if (this.shouldSkipProcessing(e)) return false
+    
     const config = new ConfigManager(e.self_id, e.group_id)
     try {
       const current = await config.loadConfig()
-      if (!current?.recall_enabled) return true
-
+      if (!current?.recall_enabled) return false
+  
       const matchedKeyword = current.keywords.find(kw => e.msg?.includes(kw))
-      if (!matchedKeyword) return true
-
+      if (!matchedKeyword) return false
       await this.applyAction(e, current, matchedKeyword)
       return false
     } catch (error) {
       logger.error(`消息撤回失败: ${error.message}`)
-      return true
+      return false
     }
   }
-
+  
   async ensureConfig(config) {
     const current = await config.loadConfig()
     if (!current) throw new Error('配置不存在')
